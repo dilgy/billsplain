@@ -1,0 +1,18 @@
+name: Poll Bills
+
+on:
+  schedule:
+    # Run every 6 hours
+    - cron: '0 */6 * * *'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger bill polling
+        run: |
+          curl -X POST "${{ secrets.AGENT_SERVICE_URL }}/poll-bills" \
+            -H "Content-Type: application/json" \
+            -d '{"days_back": 1}' \
+            --max-time 120
