@@ -16,19 +16,12 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { contact, url, zip, states } = body;
+    const { contact, url, address, states } = body;
 
     // Validate required fields
-    if (!contact || !url || !zip) {
+    if (!contact || !url) {
       return NextResponse.json(
-        { error: "Missing required fields: contact, url, zip" },
-        { status: 400 }
-      );
-    }
-
-    if (!/^\d{5}$/.test(zip)) {
-      return NextResponse.json(
-        { error: "Invalid zip code" },
+        { error: "Missing required fields: contact, url" },
         { status: 400 }
       );
     }
@@ -53,6 +46,10 @@ export async function POST(request: NextRequest) {
 
     const userId = authData.user.id;
 
+    // Extract zip from address
+    const zipMatch = address.match(/\b(\d{5})(?:-\d{4})?\b/);
+    const zip = zipMatch ? zipMatch[1] : "";
+
     // Create profile
     const { error: profileError } = await supabase.from("profiles").insert({
       id: userId,
@@ -60,6 +57,7 @@ export async function POST(request: NextRequest) {
       phone,
       business_url: url,
       zip_code: zip,
+      address,
     });
 
     if (profileError) {

@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Pencil, Loader2 } from "lucide-react";
+import { useEffect, useState, useMemo } from "react";
+import { Pencil, Loader2, ChevronDown, ChevronUp } from "lucide-react";
 
 interface Rep {
   name: string;
@@ -94,6 +94,18 @@ export default function ProfileView() {
   const [data, setData] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [topicsExpanded, setTopicsExpanded] = useState(false);
+  const TOPICS_PREVIEW = 5;
+
+  const uniqueAgencies = useMemo(() => {
+    if (!data) return [];
+    const seen = new Set<string>();
+    return data.agencies.filter((a) => {
+      if (seen.has(a.name)) return false;
+      seen.add(a.name);
+      return true;
+    });
+  }, [data]);
 
   useEffect(() => {
     const userId = sessionStorage.getItem("billsplain_user_id");
@@ -217,7 +229,7 @@ export default function ProfileView() {
           <div>
             <div className="text-[0.7rem] font-medium text-[#a8a29e] uppercase tracking-[0.08em] mb-2">Key Agencies</div>
             <div className="flex flex-wrap gap-2">
-              {agencies.map((a) => <Tag key={a.name} color="green">{a.name}</Tag>)}
+              {uniqueAgencies.map((a) => <Tag key={a.name} color="green">{a.name}</Tag>)}
             </div>
           </div>
         </SectionCard>
@@ -225,8 +237,22 @@ export default function ProfileView() {
         {/* Topics */}
         <SectionCard title="Topics We're Monitoring">
           <div className="flex flex-wrap gap-2">
-            {topics.map((t) => <Tag key={t} color="blue">{t}</Tag>)}
+            {(topicsExpanded ? topics : topics.slice(0, TOPICS_PREVIEW)).map((t) => (
+              <Tag key={t} color="blue">{t}</Tag>
+            ))}
           </div>
+          {topics.length > TOPICS_PREVIEW && (
+            <button
+              onClick={() => setTopicsExpanded(!topicsExpanded)}
+              className="mt-3 inline-flex items-center gap-1 text-[0.8rem] text-[#78716c] bg-transparent border-none cursor-pointer hover:text-foreground transition-colors p-0"
+            >
+              {topicsExpanded ? (
+                <>Show less <ChevronUp size={14} /></>
+              ) : (
+                <>+{topics.length - TOPICS_PREVIEW} more topics <ChevronDown size={14} /></>
+              )}
+            </button>
+          )}
         </SectionCard>
       </div>
     </div>

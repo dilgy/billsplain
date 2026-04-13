@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
 
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
-      .select("business_url, zip_code")
+      .select("business_url, zip_code, address")
       .eq("id", userId)
       .single();
 
@@ -45,6 +45,7 @@ export async function POST(request: NextRequest) {
         user_id: userId,
         business_url: profile.business_url,
         zip_code: profile.zip_code,
+        address: profile.address || "",
         states: stateList,
       }),
     });
@@ -84,14 +85,57 @@ export async function POST(request: NextRequest) {
       }, { onConflict: "profile_id,state_code" });
     }
 
+    // Clear old rep links before re-saving
+    await supabase
+      .from("profile_representatives")
+      .delete()
+      .eq("profile_id", userId);
+
     // Save representatives
     for (const level of ["federal", "state"] as const) {
       for (const rep of reps[level] || []) {
-        // Upsert representative
-        const { data: repData } = await supabase
-          .from("representatives")
-          .upsert(
-            {
+        let repId: string | null = null;
+
+        // Try to find existing rep by external_id first, then by name+state+level
+        if (rep.external_id) {
+          const { data: existing } = await supabase
+            .from("representatives")
+            .select("id")
+            .eq("external_id", rep.external_id)
+            .single();
+          if (existing) repId = existing.id;
+        }
+
+        if (!repId) {
+          const { data: existing } = await supabase
+            .from("representatives")
+            .select("id")
+            .eq("name", rep.name)
+            .eq("state_code", rep.state_code)
+            .eq("level", rep.level)
+            .single();
+          if (existing) repId = existing.id;
+        }
+
+        if (repId) {
+          // Update existing
+          await supabase
+            .from("representatives")
+            .update({
+              title: rep.title,
+              party: rep.party,
+              district: rep.district,
+              chamber: rep.chamber,
+              phone: rep.phone || null,
+              photo_url: rep.photo_url || null,
+              external_id: rep.external_id || null,
+            })
+            .eq("id", repId);
+        } else {
+          // Insert new
+          const { data: inserted } = await supabase
+            .from("representatives")
+            .insert({
               name: rep.name,
               title: rep.title,
               party: rep.party,
@@ -102,18 +146,18 @@ export async function POST(request: NextRequest) {
               phone: rep.phone || null,
               photo_url: rep.photo_url || null,
               external_id: rep.external_id || null,
-            },
-            { onConflict: "external_id" }
-          )
-          .select("id")
-          .single();
+            })
+            .select("id")
+            .single();
+          if (inserted) repId = inserted.id;
+        }
 
         // Link rep to profile
-        if (repData) {
+        if (repId) {
           await supabase.from("profile_representatives").upsert(
             {
               profile_id: userId,
-              representative_id: repData.id,
+              representative_id: repId,
             },
             { onConflict: "profile_id,representative_id" }
           );

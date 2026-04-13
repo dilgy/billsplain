@@ -19,7 +19,8 @@ app = FastAPI(title="BillSplain Agent", version="0.1.0")
 class BuildProfileRequest(BaseModel):
     user_id: str
     business_url: str
-    zip_code: str
+    zip_code: str = ""
+    address: str = ""
     states: list[str] = []
 
 
@@ -54,8 +55,12 @@ async def build_profile_endpoint(req: BuildProfileRequest):
             states=req.states,
         )
 
-        # Step 3: Look up representatives
-        reps = await lookup_reps(req.zip_code)
+        # Step 3: Look up representatives (skip if no address provided)
+        address = req.address or req.zip_code
+        if address:
+            reps = await lookup_reps(address)
+        else:
+            reps = {"federal": [], "state": [], "state_code": None}
 
         # Step 4: Save to Supabase
         # TODO: Save profile, reps, agencies, topics to DB

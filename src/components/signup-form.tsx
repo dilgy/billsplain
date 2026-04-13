@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, ArrowLeft, Loader2 } from "lucide-react";
+import AddressAutocomplete from "./address-autocomplete";
 
 const US_STATES = [
   "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA",
@@ -41,14 +42,14 @@ function domainToUrl(email: string): string {
 type FormData = {
   contact: string;
   url: string;
-  zip: string;
+  address: string;
   states: string[];
 };
 
 // Steps vary based on whether we need to ask for business URL
 // If business email → skip URL step (infer from domain)
 // If personal email or phone → ask for URL
-type StepId = "contact" | "url" | "zip" | "states";
+type StepId = "contact" | "url" | "address" | "states";
 
 export default function SignupForm() {
   const router = useRouter();
@@ -59,18 +60,16 @@ export default function SignupForm() {
   const [data, setData] = useState<FormData>({
     contact: "",
     url: "",
-    zip: "",
+    address: "",
     states: [],
   });
 
   // Determine which steps to show based on contact type
   const getSteps = (): StepId[] => {
     if (emailType === "business") {
-      // Business email → skip URL step, we'll infer from domain
-      return ["contact", "zip", "states"];
+      return ["contact", "address", "states"];
     }
-    // Personal email or phone → need URL
-    return ["contact", "url", "zip", "states"];
+    return ["contact", "url", "address", "states"];
   };
 
   const steps = getSteps();
@@ -125,8 +124,8 @@ export default function SignupForm() {
         return data.contact.trim().length > 0 && emailType !== null;
       case "url":
         return data.url.trim().length > 0;
-      case "zip":
-        return /^\d{5}$/.test(data.zip.trim());
+      case "address":
+        return true; // optional — can skip
       case "states":
         return true;
       default:
@@ -166,7 +165,7 @@ export default function SignupForm() {
         body: JSON.stringify({
           contact: data.contact,
           url: data.url,
-          zip: data.zip,
+          address: data.address,
           states: data.states,
         }),
       });
@@ -258,25 +257,27 @@ export default function SignupForm() {
           </div>
         )}
 
-        {currentStep === "zip" && (
+        {currentStep === "address" && (
           <div>
             <label className="block text-[0.875rem] font-semibold text-foreground mb-2">
-              Your zip code
+              Your address
             </label>
-            <input
-              type="text"
-              value={data.zip}
-              onChange={(e) => {
-                const v = e.target.value.replace(/\D/g, "").slice(0, 5);
-                update("zip", v);
-              }}
-              placeholder="75201"
-              maxLength={5}
+            <AddressAutocomplete
+              value={data.address}
+              onChange={(val) => update("address", val)}
+              placeholder="123 Main St, Austin, TX 78701"
               className="w-full px-4 py-3 border-2 border-border rounded-lg text-base font-[family-name:var(--font-space-grotesk)] outline-none focus:border-gold transition-colors bg-surface"
               autoFocus
             />
             <p className="text-[0.8rem] text-[#a8a29e] mt-2">
-              This determines your elected representatives — the people voting on bills that affect you.
+              Business or home address works. Home is more accurate since your voting address determines your congressional district.{" "}
+              <button
+                onClick={goNext}
+                type="button"
+                className="text-[0.8rem] text-[#a8a29e] underline underline-offset-2 bg-transparent border-none cursor-pointer hover:text-foreground transition-colors p-0"
+              >
+                Skip this step
+              </button>
             </p>
           </div>
         )}
